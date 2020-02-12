@@ -7,7 +7,7 @@ import nbconflux
 import yaml
 
 
-DSTRACE_COMMAND = 'dstrace'
+DSTRACE_DEFAULT_COMMAND = 'dstrace'
 DEFAULT_DSTRACE_CONFIG = {
     'confluence_api_username': None,
     'confluence_api_token': None,
@@ -61,9 +61,8 @@ class DSTrace:
 
         self.confluence_pages = self.config.get('confluence_pages', {})
         self.dvc_pipelines = self.config.get('dvc_pipelines', [])  # TODO
-    
-    @staticmethod
-    def add_git_hook(*, path, dstrace_handler_name, alias):
+
+    def add_git_hook(self, *, path, dstrace_handler_name, alias):
         existed_hook = None
         if os.path.exists(path):
             with open(path) as f:
@@ -80,35 +79,36 @@ class DSTrace:
                         f'Either remove existing {alias} git hook or remove DSTrace-created '
                         f'parts of the existing {alias} git hook and rerun "dstrace init" command.\n'
                     )
-        
+
+        dstrace_command = self.config.get('dstrace_command', DSTRACE_DEFAULT_COMMAND)
         with open(path, 'w') as f:
             content = (
                 "\n\n" if existed_hook else ""
                 "#[DSTrace begin]\n\n"
                 "#!/bin/sh\n\n"
                 f"echo 'Calling DSTrace {alias} hook'\n"
-                f"exec {DSTRACE_COMMAND} {dstrace_handler_name}\n\n"
+                f"exec {dstrace_command} {dstrace_handler_name}\n\n"
                 "#[DSTrace end]\n"
             )
             f.write(content)
 
         # grant execution permissions
         os.system(f'chmod +x {path}')
-    
+
     def set_pre_commit(self):
         self.add_git_hook(
             path='.git/hooks/pre-commit',
             alias='pre-commit',
             dstrace_handler_name='pre_commit',
         )
-            
+
     def set_pre_push(self):
         self.add_git_hook(
             path='.git/hooks/pre-push',
             alias='pre-push',
             dstrace_handler_name='pre_push',
         )
-        
+
     @staticmethod
     def publish_to_confluence(*, source: str, target: str, username: str, token: str):
         _, _ = nbconflux.notebook_to_page(
