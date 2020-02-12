@@ -1,0 +1,9 @@
+gitpython
+html5lib
+fire
+jupyter
+nbconflux
+nbconvert==5.6.1
+pyyaml
+requests
+
