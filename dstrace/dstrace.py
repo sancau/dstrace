@@ -1,4 +1,6 @@
+import json
 import os
+import uuid
 import sys
 
 import fire
@@ -9,14 +11,58 @@ import yaml
 
 DSTRACE_DEFAULT_COMMAND = 'dstrace'
 DEFAULT_DSTRACE_CONFIG = {
-    'confluence_api_username': None,
-    'confluence_api_token': None,
     'confluence_pages': {},
 }
+DEFAULT_DSTRACE_LOCAL_CONFIG = {
+    'confluence_api_username': None,
+    'confluence_api_token': None,
+}
 DSTRACE_CONFIG_PATH = '.dstrace'
+DSTRACE_LOCAL_CONFIG_PATH = '.dstracelocal'
 GIT_HOOKS_REL_PATH = '.git/hooks'
 GIT_HOOK_PRE_COMMIT_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
 GIT_HOOK_PRE_PUSH_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
+
+
+def add_remove_input_tags(path):
+    """Returns JSON-formatted notebook (sourced from <path>) with specific tags added.
+    """
+    with open(path) as f:
+        nb = json.loads(f.read())
+    clean_cells = []
+    for cell in nb['cells']:
+        if cell['cell_type'] == 'code':
+            if not cell['outputs']:
+                continue
+            # add tags that can be interpreted by nbconflux
+            # look here for details:
+            # https://github.com/Valassis-Digital-Media/nbconflux/blob/master/nbconflux/exporter.py#L71
+            cell['metadata']['tags'] = ['noinput']
+        clean_cells.append(cell)
+    nb['cells'] = clean_cells
+    return json.dumps(nb)
+
+
+def with_preprocessed_temp_file(processor):
+    """Applies <processor> to the file on the given path.
+    Passes processed temp file path to the decorated function.
+    After the decorated function finishes it's job - removes the temp processed file.
+    """
+    def deco(func):
+        def inner(path):
+            temp_file_path = str(uuid.uuid4())
+            try:
+                processed_data = processor(path)
+                with open(temp_file_path, 'w') as f:
+                    f.write(processed_data)
+                result = func(temp_file_path)
+            except Exception as e:
+                raise e
+            finally:
+                os.remove(temp_file_path)
+            return result
+        return inner
+    return deco
 
 
 class GITProxy:
@@ -51,16 +97,27 @@ class GITProxy:
 
 class DSTrace:
     def __init__(self):
+        # load or create local config
+        local_config = DEFAULT_DSTRACE_LOCAL_CONFIG
+        if os.path.exists(DSTRACE_LOCAL_CONFIG_PATH):
+            with open(DSTRACE_LOCAL_CONFIG_PATH) as f:
+                local_config = yaml.load(f, Loader=yaml.SafeLoader)
+        else:
+            with open(DSTRACE_LOCAL_CONFIG_PATH, 'w') as f:
+                f.write(yaml.dump(local_config))
+
+        # load or create git aware config
+        self.config = DEFAULT_DSTRACE_CONFIG
         if not os.path.exists(DSTRACE_CONFIG_PATH):
-            self.config = DEFAULT_DSTRACE_CONFIG
             with open(DSTRACE_CONFIG_PATH, 'w') as f:
                 f.write(yaml.dump(self.config))
         else:
             with open(DSTRACE_CONFIG_PATH) as f:
                 self.config = yaml.load(f, Loader=yaml.SafeLoader)
 
+        # merge local config into VCS-aware config
+        self.config.update(local_config)
         self.confluence_pages = self.config.get('confluence_pages', {})
-        self.dvc_pipelines = self.config.get('dvc_pipelines', [])  # TODO
 
     def add_git_hook(self, *, path, dstrace_handler_name, alias):
         existed_hook = None
@@ -121,31 +178,39 @@ class DSTrace:
     def butch_publish_to_confluence(self):
         gp = GITProxy('.')
         pages_to_update = {
-            notebook: confluence_url for notebook, confluence_url in self.confluence_pages.items()
+            notebook: confluence_config for notebook, confluence_config in self.confluence_pages.items()
             if notebook in gp.get_last_commit_changed_files()
         }
         if pages_to_update:
             count = len(pages_to_update)
             noun = 'page' if count == 1 else 'pages'
             sys.stdout.write(f'\nGoing to update {count} Confluence {noun}:\n')
-            for i, (notebook, confluence_url) in enumerate(pages_to_update.items()):
-                sys.stdout.write(f'{i + 1}. {notebook} >> {confluence_url}\n')
+            for i, (notebook, confluence_config) in enumerate(pages_to_update.items()):
+                sys.stdout.write(f'{i + 1}. {notebook} >> {confluence_config}\n')
             sys.stdout.write('\n')
 
             username = self.config.get('confluence_api_username')
             if not username:
                 username = input('Enter Confluence API username: ')
             token = self.config.get('confluence_api_token')
-            if not username:
+            if not token:
                 token = input('Enter Confluence API token: ')
-            
-            for notebook, confluence_url in pages_to_update.items():
-                self.publish_to_confluence(
-                    source=notebook, 
-                    target=confluence_url,
-                    username=username,
-                    token=token,
-                )
+
+            for notebook, confluence_config in pages_to_update.items():
+
+                def do_publish(nb_path):
+                    self.publish_to_confluence(
+                        source=nb_path,
+                        target=confluence_config['confluence_url'],
+                        username=username,
+                        token=token,
+                    )
+
+                publish = do_publish
+                if not confluence_config.get('code'):
+                    publish = with_preprocessed_temp_file(add_remove_input_tags)(do_publish)
+
+                publish(notebook)
         else:
             sys.stdout.write('No Confluence pages to update.\n')
 
@@ -158,7 +223,20 @@ class CLI:
         sys.stdout.write('[CURRENT CONFIGURATION]:\n\n')
         sys.stdout.write(yaml.dump(dstrace.config))
         sys.stdout.write('\n')
-        
+
+        # handle .gitignore
+        # local configuration should not be in the VCS
+        gitignore_path = '.gitignore'
+        if os.path.exists(gitignore_path):
+            with open(gitignore_path) as f:
+                current = f.read().split('\n')
+            with open(gitignore_path, 'a') as f:
+                if DSTRACE_LOCAL_CONFIG_PATH not in current:
+                    f.write(DSTRACE_LOCAL_CONFIG_PATH)
+        else:
+            with open(gitignore_path, 'w') as f:
+                f.write(DSTRACE_LOCAL_CONFIG_PATH)
+
         pre_commit = None
         while pre_commit not in ['y', 'n']:
             pre_commit = input(
@@ -172,7 +250,7 @@ class CLI:
             ).lower()
         if pre_commit == 'y':
             dstrace.set_pre_commit()
-            
+
         pre_push = None
         while pre_push not in ['y', 'n']:
             pre_push = input(
@@ -188,14 +266,14 @@ class CLI:
             ).lower()
         if pre_push == 'y':
             dstrace.set_pre_push()
-            
+
         sys.stdout.write('\nDSTrace configuration completed.\n')
-        
+
     def pre_commit(self):
         sys.stdout.write('\nDSTrace pre-commit started.\n')
         self.convert_staged_notebooks()
         sys.stdout.write('\nDSTrace pre-commit completed.\n\n')
-    
+
     @staticmethod
     def pre_push():
         sys.stdout.write('\nDSTrace pre-push started.\n')
@@ -208,6 +286,7 @@ class CLI:
         gp = GITProxy('.')
         to_convert = []
         for f in gp.get_git_staged():
+            f = os.path.join(gp.repo.working_dir, f)  # absolute path
             name, ext = os.path.splitext(f)
             if ext == '.ipynb' and os.path.exists(f):  # this may be a staged deletion:
                 to_convert.append(f)

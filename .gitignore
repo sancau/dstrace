@@ -1,7 +1,10 @@
 .idea
 .dstrace
+.dstracelocal
 venv/
 dstrace.egg-info/
 dist/
 build/
 __pycache__
+*.ipynb
+*.ipynb.py
