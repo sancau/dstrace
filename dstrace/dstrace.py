@@ -209,11 +209,15 @@ class DSTrace:
         # TODO
         # this behavior is incorrect:
         # need to get list of files changed since last push to origin, not since last commit
+
+        # TODO
+        # only trigger on correct branch
         ####################################################################################
         pages_to_update = {
             notebook: confluence_config for notebook, confluence_config in self.confluence_pages.items()
             if notebook in gp.get_last_commit_changed_files()
         }
+
         if pages_to_update:
             count = len(pages_to_update)
             noun = 'page' if count == 1 else 'pages'
@@ -282,7 +286,7 @@ class CLI:
                 'This will perform the operations listed below before each git commit:\n'
                 '1. Convert all .ipynb files to .py using nbconvert to improve version control verbosity\n'
                 '2. Add all of the converted .py representations to the commit.\n'
-                'Enter either "y" or "n" and press Enter.\n',
+                'Type either "y" or "n" and press Enter.\n',
             ).lower()
         if pre_commit == 'y':
             dstrace.set_pre_commit()
@@ -294,11 +298,10 @@ class CLI:
                 f'{"=" * 40}\n'
                 'Do you want to add pre-push git hook?\n'
                 'This will perform the operations listed below before each git push:\n'
-                '1. Update Confluence pages for each changed Jupyter notebook that '
-                'has a specified corresponding page URL in .dstrace\n'
-                # TODO commit urls
-                # '2. Add commit url to the top of all of the updated Confluence pages\n.'
-                'Enter either "y" or "n" and press Enter.\n',
+                '1. Update the corresponding Confluence page for each changed Jupyter notebook '
+                'according to the configuration defined in .dstrace file.\n'
+                '2. Add the source commit URL to the top of every updated Confluence page.\n'
+                'Type either "y" or "n" and press Enter.\n',
             ).lower()
         if pre_push == 'y':
             dstrace.set_pre_push()
