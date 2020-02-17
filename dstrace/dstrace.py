@@ -24,11 +24,12 @@ GIT_HOOK_PRE_COMMIT_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
 GIT_HOOK_PRE_PUSH_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
 
 
-def add_remove_input_tags(path):
+def add_remove_input_tags(raw_data: str) -> str:
     """Returns JSON-formatted notebook (sourced from <path>) with specific tags added.
+
+    Accepts and returns raw data (utf-8 string).
     """
-    with open(path) as f:
-        nb = json.loads(f.read())
+    nb = json.loads(raw_data)
     clean_cells = []
     for cell in nb['cells']:
         if cell['cell_type'] == 'code':
@@ -43,18 +44,43 @@ def add_remove_input_tags(path):
     return json.dumps(nb)
 
 
-def with_preprocessed_temp_file(processor):
-    """Applies <processor> to the file on the given path.
-    Passes processed temp file path to the decorated function.
+def add_commit_url(raw_data: str) -> str:
+    """Adds commit url to the top of the notebook.
+
+    Accepts and returns raw data (utf-8 string).
+    """
+    nb = json.loads(raw_data)
+
+    gp = GITProxy('.')
+    url = gp.git_last_commit_url
+    url_cell = {
+        "cell_type": "markdown",
+        "metadata": {
+            "collapsed": True,
+        },
+        "source": [
+            f"Source commit: [{url}]({url})"
+        ]
+    }
+    nb['cells'] = [url_cell] + nb['cells']
+    return json.dumps(nb)
+
+
+def with_preprocessed_temp_file(processors):
+    """Applies each <processor> from <processors> to the file on the given path.
+    Passes resulting processed temp file path to the decorated function.
     After the decorated function finishes it's job - removes the temp processed file.
     """
     def deco(func):
         def inner(path):
             temp_file_path = str(uuid.uuid4())
             try:
-                processed_data = processor(path)
+                with open(path) as f:
+                    data = f.read()
+                for processor in processors:
+                    data = processor(data)
                 with open(temp_file_path, 'w') as f:
-                    f.write(processed_data)
+                    f.write(data)
                 result = func(temp_file_path)
             except Exception as e:
                 raise e
@@ -82,7 +108,9 @@ class GITProxy:
 
     @property
     def git_last_commit_url(self):
-        return f'{self.git_remote_url}/commit/{self.git_last_commit_hash}'
+        url = f'{self.git_remote_url}/commit/{self.git_last_commit_hash}'
+        # cast to http format in case if origin is ssh based
+        return url.replace(':', '/').replace('git@', 'https://')
 
     @property
     def git_last_commit_message(self):
@@ -177,6 +205,11 @@ class DSTrace:
 
     def butch_publish_to_confluence(self):
         gp = GITProxy('.')
+
+        # TODO
+        # this behavior is incorrect:
+        # need to get list of files changed since last push to origin, not since last commit
+        ####################################################################################
         pages_to_update = {
             notebook: confluence_config for notebook, confluence_config in self.confluence_pages.items()
             if notebook in gp.get_last_commit_changed_files()
@@ -206,10 +239,13 @@ class DSTrace:
                         token=token,
                     )
 
-                publish = do_publish
+                processors = [
+                    add_commit_url,
+                ]
                 if not confluence_config.get('code'):
-                    publish = with_preprocessed_temp_file(add_remove_input_tags)(do_publish)
+                    processors.append(add_remove_input_tags)
 
+                publish = with_preprocessed_temp_file(processors)(do_publish)
                 publish(notebook)
         else:
             sys.stdout.write('No Confluence pages to update.\n')
