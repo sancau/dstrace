@@ -4,3 +4,4 @@ venv/
 dstrace.egg-info/
 dist/
 build/
+__pycache__
