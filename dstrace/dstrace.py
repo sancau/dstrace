@@ -81,12 +81,11 @@ def with_preprocessed_temp_file(processors):
                     data = processor(data)
                 with open(temp_file_path, 'w') as f:
                     f.write(data)
-                result = func(temp_file_path)
+                return func(temp_file_path)
             except Exception as e:
                 raise e
             finally:
                 os.remove(temp_file_path)
-            return result
         return inner
     return deco
 
