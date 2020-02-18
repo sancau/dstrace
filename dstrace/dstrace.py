@@ -121,6 +121,9 @@ class GITProxy:
     def get_last_commit_changed_files(self):
         return self.repo.git.diff('HEAD~1..HEAD', name_only=True).split('\n')
 
+    def get_changed_files_since_last_push(self):
+        return self.repo.git.diff(f'origin/{self.repo.active_branch.name}', name_only=True).split('\n')
+
 
 class DSTrace:
     def __init__(self):
@@ -202,26 +205,23 @@ class DSTrace:
             password=token,
         )
 
-    def butch_publish_to_confluence(self):
+    def get_pages_to_update(self):
         gp = GITProxy('.')
 
-        # TODO
-        # this behavior is incorrect:
-        # need to get list of files changed since last push to origin, not since last commit
-
-        # TODO
-        # only trigger on correct branch
-        ####################################################################################
-        pages_to_update = {
+        return {
             notebook: confluence_config for notebook, confluence_config in self.confluence_pages.items()
-            if notebook in gp.get_last_commit_changed_files()
+            if
+            notebook in gp.get_changed_files_since_last_push()
+            and
+            confluence_config['branch'] == gp.repo.active_branch.name
         }
 
-        if pages_to_update:
-            count = len(pages_to_update)
+    def batch_publish_to_confluence(self, pages):
+        if pages:
+            count = len(pages)
             noun = 'page' if count == 1 else 'pages'
             sys.stdout.write(f'\nGoing to update {count} Confluence {noun}:\n')
-            for i, (notebook, confluence_config) in enumerate(pages_to_update.items()):
+            for i, (notebook, confluence_config) in enumerate(pages.items()):
                 sys.stdout.write(f'{i + 1}. {notebook} >> {confluence_config}\n')
             sys.stdout.write('\n')
 
@@ -232,7 +232,7 @@ class DSTrace:
             if not token:
                 token = input('Enter Confluence API token: ')
 
-            for notebook, confluence_config in pages_to_update.items():
+            for notebook, confluence_config in pages.items():
 
                 def do_publish(nb_path):
                     self.publish_to_confluence(
@@ -316,7 +316,9 @@ class CLI:
     def pre_push():
         sys.stdout.write('\nDSTrace pre-push started.\n')
         dstrace = DSTrace()
-        dstrace.butch_publish_to_confluence()
+        dstrace.batch_publish_to_confluence(
+            dstrace.get_pages_to_update(),
+        )
         sys.stdout.write('\nDSTrace pre-push completed.\n\n')
 
     @staticmethod
