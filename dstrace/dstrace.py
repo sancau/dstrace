@@ -335,6 +335,17 @@ class CLI:
         for f in to_convert:
             os.system(f'jupyter nbconvert --to script {f} --output {f} && git add {f}.py')
 
+    @staticmethod
+    def force_update_confluence_pages():
+        gp = GITProxy('.')
+        dstrace = DSTrace()
+        pages = {
+            nb: config
+            for nb, config in dstrace.confluence_pages.items()
+            if config['branch'] == gp.repo.active_branch.name
+        }
+        dstrace.batch_publish_to_confluence(pages)
+
 
 def main():
     fire.Fire(CLI)
