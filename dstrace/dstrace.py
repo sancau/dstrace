@@ -10,12 +10,13 @@ import yaml
 
 
 DSTRACE_DEFAULT_COMMAND = 'dstrace'
-DEFAULT_DSTRACE_CONFIG = {
+DSTRACE_DEFAULT_CONFIG = {
     'confluence_pages': {},
 }
-DEFAULT_DSTRACE_LOCAL_CONFIG = {
+DSTRACE_DEFAULT_LOCAL_CONFIG = {
     'confluence_api_username': None,
     'confluence_api_token': None,
+    'dstrace_command': DSTRACE_DEFAULT_COMMAND
 }
 DSTRACE_CONFIG_PATH = '.dstrace'
 DSTRACE_LOCAL_CONFIG_PATH = '.dstracelocal'
@@ -128,7 +129,7 @@ class GITProxy:
 class DSTrace:
     def __init__(self):
         # load or create local config
-        local_config = DEFAULT_DSTRACE_LOCAL_CONFIG
+        local_config = DSTRACE_DEFAULT_LOCAL_CONFIG
         if os.path.exists(DSTRACE_LOCAL_CONFIG_PATH):
             with open(DSTRACE_LOCAL_CONFIG_PATH) as f:
                 local_config = yaml.load(f, Loader=yaml.SafeLoader)
@@ -137,7 +138,7 @@ class DSTrace:
                 f.write(yaml.dump(local_config))
 
         # load or create git aware config
-        self.config = DEFAULT_DSTRACE_CONFIG
+        self.config = DSTRACE_DEFAULT_CONFIG
         if not os.path.exists(DSTRACE_CONFIG_PATH):
             with open(DSTRACE_CONFIG_PATH, 'w') as f:
                 f.write(yaml.dump(self.config))
