@@ -23,3 +23,9 @@
 
 - Fix dependencies versions
 - Minor refactoring
+
+### 0.1.3
+
+#### Fixes:
+
+- fixed incorrect last commit url resolver
