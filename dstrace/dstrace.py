@@ -110,7 +110,9 @@ class GITProxy:
     def git_last_commit_url(self):
         url = f'{self.git_remote_url}/commit/{self.git_last_commit_hash}'
         # cast to http format in case if origin is ssh based
-        return url.replace(':', '/').replace('git@', 'https://')
+        if 'git@' in url:
+            return url.replace(':', '/').replace('git@', 'https://')
+        return url
 
     @property
     def git_last_commit_message(self):
