@@ -29,3 +29,9 @@
 #### Fixes:
 
 - fixed incorrect last commit url resolver
+
+### 0.1.4
+
+#### Fixes:
+
+- fixed a bug where .dstracelocal would not be correctly added to .gitignore on dstrace init
