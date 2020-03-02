@@ -269,15 +269,16 @@ class CLI:
         # handle .gitignore
         # local configuration should not be in the VCS
         gitignore_path = '.gitignore'
+        gitignore_string = f'\n\n# DSTrace\n{DSTRACE_LOCAL_CONFIG_PATH}\n\n'
         if os.path.exists(gitignore_path):
             with open(gitignore_path) as f:
                 current = f.read().split('\n')
             with open(gitignore_path, 'a') as f:
                 if DSTRACE_LOCAL_CONFIG_PATH not in current:
-                    f.write(DSTRACE_LOCAL_CONFIG_PATH)
+                    f.write(gitignore_string)
         else:
             with open(gitignore_path, 'w') as f:
-                f.write(DSTRACE_LOCAL_CONFIG_PATH)
+                f.write(gitignore_string)
 
         pre_commit = None
         while pre_commit not in ['y', 'n']:
