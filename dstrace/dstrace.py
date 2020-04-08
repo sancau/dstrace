@@ -253,7 +253,7 @@ class DSTrace:
                 processors = []
 
                 # default behavior is to add commit url
-                if not confluence_config.get('no_commit_url'):
+                if not confluence_config.get('no_commit_url'):  # [CONFIG]
                     processors.append(add_commit_url)
 
                 if not confluence_config.get('code'):
@@ -336,15 +336,28 @@ class CLI:
     @staticmethod
     def convert_staged_notebooks():
         gp = GITProxy('.')
+        dstrace = DSTrace()
         to_convert = []
+
+        pages = {
+            nb: config
+            for nb, config in dstrace.confluence_pages.items()
+            if config['branch'] == gp.repo.active_branch.name
+        }
+
         for f in gp.get_git_staged():
-            f = os.path.join(gp.repo.working_dir, f)  # absolute path
-            name, ext = os.path.splitext(f)
-            if ext == '.ipynb' and os.path.exists(f):  # this may be a staged deletion:
-                to_convert.append(f)
+            abs_path = os.path.join(gp.repo.working_dir, f)  # absolute path
+            name, ext = os.path.splitext(abs_path)
+            if ext == '.ipynb' and os.path.exists(abs_path):  # this may be a staged deletion:
+                to_convert.append((f, abs_path))  # repo path and absolute path tuple
         if not to_convert:
             sys.stdout.write('Nothing to convert. HEAD contains no modified notebooks.\n')
-        for f in to_convert:
+        for nb, abs_path in to_convert:
+            confluence_config = pages.get(nb)
+            if confluence_config:
+                if confluence_config.get('no_conversion_to_python'):  # [CONFIG]
+                    sys.stdout.write(f'Skipping conversion for {nb}: no_conversion_to_python is set to true.')
+                    continue
             os.system(f'jupyter nbconvert --to script {f} --output {f} && git add {f}.py')
 
     @staticmethod
