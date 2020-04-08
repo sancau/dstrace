@@ -38,7 +38,7 @@ def add_remove_input_tags(raw_data: str) -> str:
         if cell['cell_type'] == 'code':
             # if the cell has explicit metadata dstrace tag for including source
             # then we dont want to exclude input
-            if not DSTRACE_CONFLUENCE_FORCE_INCLUDE_INPUT_TAG in cell['metadata'].get('tags', []):
+            if DSTRACE_CONFLUENCE_FORCE_INCLUDE_INPUT_TAG not in cell['metadata'].get('tags', []):
                 # add tags that can be interpreted by nbconflux
                 # look here for details:
                 # https://github.com/Valassis-Digital-Media/nbconflux/blob/master/nbconflux/exporter.py#L71
