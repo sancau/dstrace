@@ -10,12 +10,6 @@
 {%- endif %}
 {%- endblock header %}
 
-{% block codecell %}
-<p class="border-box-sizing code_cell rendered">
-{{ super() }}
-</p>
-{%- endblock codecell %}
-
 {% block input_group -%}
 <div class="input">
 {{ super() }}
