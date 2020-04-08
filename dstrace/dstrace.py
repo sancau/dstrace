@@ -246,9 +246,12 @@ class DSTrace:
                         token=token,
                     )
 
-                processors = [
-                    add_commit_url,
-                ]
+                processors = []
+
+                # default behavior is to add commit url
+                if not confluence_config.get('no_commit_url'):
+                    processors.append(add_commit_url)
+
                 if not confluence_config.get('code'):
                     processors.append(add_remove_input_tags)
 
