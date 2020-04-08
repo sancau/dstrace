@@ -5,8 +5,9 @@ import sys
 
 import fire
 import git
-import nbconflux
 import yaml
+
+from .vendor.nbconflux.nbconflux.api import notebook_to_page # use this codebase as vendor for now as project is abandoned :(
 
 
 DSTRACE_DEFAULT_COMMAND = 'dstrace'
@@ -201,7 +202,7 @@ class DSTrace:
 
     @staticmethod
     def publish_to_confluence(*, source: str, target: str, username: str, token: str):
-        _, _ = nbconflux.notebook_to_page(
+        _, _ = notebook_to_page(
             source,
             target,
             username=username,
