@@ -54,6 +54,7 @@ def add_commit_url(raw_data: str) -> str:
     nb = json.loads(raw_data)
 
     gp = GITProxy('.')
+    # TODO: use not just the last commit but the last commit where the notebook was changed.
     url = gp.git_last_commit_url
     url_cell = {
         "cell_type": "markdown",
