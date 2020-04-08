@@ -21,6 +21,7 @@ DSTRACE_DEFAULT_LOCAL_CONFIG = {
 }
 DSTRACE_CONFIG_PATH = '.dstrace'
 DSTRACE_LOCAL_CONFIG_PATH = '.dstracelocal'
+DSTRACE_CONFLUENCE_FORCE_INCLUDE_INPUT_TAG = 'dstrace_confluence_force_include_input'
 GIT_HOOKS_REL_PATH = '.git/hooks'
 GIT_HOOK_PRE_COMMIT_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
 GIT_HOOK_PRE_PUSH_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
@@ -35,12 +36,14 @@ def add_remove_input_tags(raw_data: str) -> str:
     clean_cells = []
     for cell in nb['cells']:
         if cell['cell_type'] == 'code':
-            if not cell['outputs']:
-                continue
-            # add tags that can be interpreted by nbconflux
-            # look here for details:
-            # https://github.com/Valassis-Digital-Media/nbconflux/blob/master/nbconflux/exporter.py#L71
-            cell['metadata']['tags'] = ['noinput']
+            # if the cell has explicit metadata dstrace tag for including source
+            # then we dont want to exclude input
+            if not DSTRACE_CONFLUENCE_FORCE_INCLUDE_INPUT_TAG in cell['metadata'].get('tags', []):
+                # add tags that can be interpreted by nbconflux
+                # look here for details:
+                # https://github.com/Valassis-Digital-Media/nbconflux/blob/master/nbconflux/exporter.py#L71
+                cell['metadata']['tags'] = ['noinput']
+
         clean_cells.append(cell)
     nb['cells'] = clean_cells
     return json.dumps(nb)
