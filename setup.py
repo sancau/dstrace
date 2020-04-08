@@ -33,11 +33,11 @@ setup(
         'fire==0.2.1',
         'GitPython==3.0.8',
         'html5lib==1.0.1',
-        'jupyter==1.0.0',
-        'nbconflux==0.7.0',
         'nbconvert==5.6.1',
         'PyYAML==5.2',
         'requests==2.22.0',
+        'traitlets==4.3.3',
+        'bleach==3.1.4',
     ],
     entry_points={
         'console_scripts': [
