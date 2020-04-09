@@ -1,1 +1,2 @@
 include LICENSE
+include dstrace/vendor/nbconflux/nbconflux/confluence.tpl
