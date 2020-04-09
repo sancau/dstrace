@@ -47,6 +47,7 @@
 - allow to disable *Source Commit: ...* line for Confluence pages by adding *no_commit_url: true* to Confluence's page config
 - allow forcing specific code cell inputs to Confluence by markig them with *dstrace_confluence_force_include_input* metadata tag
 - allow to skip "nbconvert to python" step for specific Confluence pages by adding *no_conversion_to_python: true* to a Confluence page config
+- introduce glob expresion argument for *force_update_confluence_pages* that allows to specify notebooks to update using standard shell-like mask syntax
 
 #### Other:
 
