@@ -1,3 +1,4 @@
+import glob
 import json
 import os
 import uuid
@@ -361,7 +362,9 @@ class CLI:
             os.system(f'jupyter nbconvert --to script {f} --output {f} && git add {f}.py')
 
     @staticmethod
-    def force_update_confluence_pages():
+    def force_update_confluence_pages(path_glob_mask=None):
+        sys.stdout.write('Started on-demand Confluence update\n\n')
+
         gp = GITProxy('.')
         dstrace = DSTrace()
         pages = {
@@ -369,6 +372,21 @@ class CLI:
             for nb, config in dstrace.confluence_pages.items()
             if config['branch'] == gp.repo.active_branch.name
         }
+
+        if path_glob_mask is not None:
+            target_paths = glob.glob(path_glob_mask, recursive=True)
+
+            sys.stdout.write(f'Given mask resolved to paths:\n\n')
+            for i, path in enumerate(target_paths):
+                sys.stdout.write(f'{i + 1}. {path}\n')
+            sys.stdout.write('\n')
+
+            pages = {
+                nb: config
+                for nb, config in pages.items()
+                if nb in target_paths
+            }
+
         dstrace.batch_publish_to_confluence(pages)
 
 
