@@ -1,10 +1,10 @@
 # DSTrace is a data science workflow helper
 
-- More comprehensive documentation to come. The project is currently in an early stage. We are using this @Welltory data science team and find it helpful. But still there is much of work to do until it's stable and has clear enough documentation.
+- More comprehensive documentation to come. The project is currently at an early stage. We are using this at [Welltory](https://welltory.com) data science team and find it helpful. But still there is much of work to do until the tool is stable and has clear enough documentation.
 
 - If you find the idea useful but have problems using the tool - feel free to post an issue. I'll be glad to help you out.
 
-- Being an experiment in an early stage, the tool probably have bug and WTFs here and there. Once again please post issues if you'll find something.
+- Being an experiment at an early stage, the tool probably have bugs and WTFs here and there. Once again, please post issues if you'll find something.
 
 ## TLDR
 
@@ -17,14 +17,24 @@ DSTrace is trying to solve two common problems:
 
 ### How it does that?
 
-1. DSTrace using GIT hooks to perform some operations on every commit and on every push
-2. If a notebook was changed DSTrace will use Jupyter's *nbconvert* to built a Python representation of that notebook and will automatically add it to the commit
+- DSTrace is using GIT hooks to perform some operations on every commit and on every push
+- If a notebook was changed DSTrace will use Jupyter's *nbconvert* to built a Python representation of that notebook and will automatically add it to the commit
 
 *You now have a meaningful git diff :)*
 
-3. It also will help to synchronize changed notebooks with their corresponding Confluence pages that can be configured in a DSTrace config file (that is also goes to VCS)
+- DSTrace will help to synchronize changed notebooks with their corresponding Confluence pages that can be configured in a DSTrace config file (that is also goes to VCS)
 
-*You now Confluence documentation synchronized with the actual research in Jupyter. And there's more. You also have each Confluence page version bind to a specific GIT commit :)*
+*You now have Confluence documentation synchronized with the actual research in Jupyter. And there's more. You also have each Confluence page version bind to a specific GIT commit :)*
+
+##### NOTE
+
+Currently the tool uses [NbConflux](https://github.com/Valassis-Digital-Media/nbconflux.git) to interact with Confluence.
+\
+Unfortunately NbConflux seem not to be active anymore.
+\
+For now I've chosen vedoring strategy to be able modify nbconflux here and there without the need to fork it and support an another package.
+\
+This is not very clean approach but it does the job and allows to iterate faster.
 
 ## Step by step example
 
@@ -159,5 +169,5 @@ Of course .dstracelocal SHOULD NOT go to VSC. To ensure that DSTrace will add it
 
 ## Project status
 
-The project is being actively (kinda :)) developed and is in an early stage. The ongoing changes can be
+The project is being actively (kinda :)) developed. The ongoing changes can be
 monitored via CHANGES.md
