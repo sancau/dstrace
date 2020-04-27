@@ -53,3 +53,7 @@
 
 - add some helpers for testing and debugging during development
 - use vendoring strategy for nbconflux https://github.com/Valassis-Digital-Media/nbconflux.git
+
+### 0.1.6
+
+- fixed a bug with output nbconvert paths in pre-commit converion logic

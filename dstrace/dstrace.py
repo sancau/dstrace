@@ -359,7 +359,7 @@ class CLI:
                 if confluence_config.get('no_conversion_to_python'):  # [CONFIG]
                     sys.stdout.write(f'Skipping conversion for {nb}: no_conversion_to_python is set to true.')
                     continue
-            os.system(f'jupyter nbconvert --to script {f} --output {f} && git add {f}.py')
+            os.system(f'jupyter nbconvert --to script {abs_path} --output {abs_path} && git add {abs_path}.py')
 
     @staticmethod
     def force_update_confluence_pages(path_glob_mask=None):
