@@ -23,40 +23,98 @@ DSTRACE_DEFAULT_LOCAL_CONFIG = {
 DSTRACE_CONFIG_PATH = '.dstrace'
 DSTRACE_LOCAL_CONFIG_PATH = '.dstracelocal'
 DSTRACE_CONFLUENCE_FORCE_INCLUDE_INPUT_TAG = 'dstrace_confluence_force_include_input'
+DSTRACE_INCLUDE_INPUT_TOKEN = '# dstrace_include_input\n'
+DSTRACE_EXCLUDE_INPUT_TOKEN = '# dstrace_exclude_input\n'
+DSTRACE_EXCLUDE_OUTPUT_TOKEN = '# dstrace_exclude_output\n'
+
 GIT_HOOKS_REL_PATH = '.git/hooks'
 GIT_HOOK_PRE_COMMIT_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
 GIT_HOOK_PRE_PUSH_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
 
 
-def add_remove_input_tags(raw_data: str) -> str:
+def handle_input(raw_data: str, *, config) -> str:
     """Returns JSON-formatted notebook (sourced from <path>) with specific tags added.
 
-    Accepts and returns raw data (utf-8 string).
+    Accepts and returns raw data (utf-8 string) and the DSTrace config instance.
     """
+    def exclude_input(cell):
+        # add tags that can be interpreted by nbconflux
+        # look here for details:
+        # https://github.com/Valassis-Digital-Media/nbconflux/blob/master/nbconflux/exporter.py#L71
+        cell['metadata']['tags'] = cell['metadata'].get('tags', []) + ['noinput']
+        return cell
+
+    def handle_cell(cell):
+        if not cell['source']:  # if cell is empty - do nothing
+            return cell
+
+        first_line = cell['source'][0]
+
+        if config.get('code'):  # code included by default
+            # if the cell has special comment line we dont want to include input (overwrite default)
+            if first_line == DSTRACE_EXCLUDE_INPUT_TOKEN:
+                cell = exclude_input(cell)
+
+        else:  # code excluded by default
+            # if the cell has explicit metadata dstrace tag for including source
+            # or if special comment line in the cell source
+            # then we dont want to exclude input
+            input_required = (
+                DSTRACE_CONFLUENCE_FORCE_INCLUDE_INPUT_TAG in cell['metadata'].get('tags', [])
+                or
+                first_line == DSTRACE_INCLUDE_INPUT_TOKEN
+            )
+            if not input_required:
+                cell = exclude_input(cell)
+        return cell
+
     nb = json.loads(raw_data)
     clean_cells = []
     for cell in nb['cells']:
         if cell['cell_type'] == 'code':
-            # if the cell has explicit metadata dstrace tag for including source
-            # then we dont want to exclude input
-            if DSTRACE_CONFLUENCE_FORCE_INCLUDE_INPUT_TAG not in cell['metadata'].get('tags', []):
-                # add tags that can be interpreted by nbconflux
-                # look here for details:
-                # https://github.com/Valassis-Digital-Media/nbconflux/blob/master/nbconflux/exporter.py#L71
-                cell['metadata']['tags'] = ['noinput']
-
+           cell = handle_cell(cell)
         clean_cells.append(cell)
     nb['cells'] = clean_cells
     return json.dumps(nb)
 
 
-def add_commit_url(raw_data: str) -> str:
+def handle_output(raw_data: str, *, config: dict) -> str:
+    """Removes cell output if need.
+    """
+    def remove_output(cell):
+        cell['outputs'] = []
+        return cell
+
+    def handle_cell(cell):
+        if not cell['source']:  # if cell is empty - do nothing
+            return cell
+
+        first_line = cell['source'][0]
+        if first_line == DSTRACE_EXCLUDE_OUTPUT_TOKEN:
+            cell = remove_output(cell)
+
+        return cell
+
+    nb = json.loads(raw_data)
+    clean_cells = []
+    for cell in nb['cells']:
+        if cell['cell_type'] == 'code':
+           cell = handle_cell(cell)
+        clean_cells.append(cell)
+    nb['cells'] = clean_cells
+    return json.dumps(nb)
+
+
+def handle_commit_url(raw_data: str, *, config) -> str:
     """Adds commit url to the top of the notebook.
 
     Accepts and returns raw data (utf-8 string).
     """
-    nb = json.loads(raw_data)
 
+    if config.get('no_commit_url'):
+        return raw_data
+
+    nb = json.loads(raw_data)
     gp = GITProxy('.')
     # TODO: use not just the last commit but the last commit where the notebook was changed.
     url = gp.git_last_commit_url
@@ -73,7 +131,34 @@ def add_commit_url(raw_data: str) -> str:
     return json.dumps(nb)
 
 
-def with_preprocessed_temp_file(processors):
+def remove_dstrace_tokens(raw_data: str, *, config) -> str:
+    """Removes DSTrace tokens from the code inputs.
+    """
+    def handle_cell(cell):
+        if not cell['source']:  # source is empty
+            return cell
+
+        first_line = cell['source'][0]
+        if first_line in [
+            DSTRACE_INCLUDE_INPUT_TOKEN,
+            DSTRACE_EXCLUDE_INPUT_TOKEN,
+            DSTRACE_EXCLUDE_OUTPUT_TOKEN,
+        ]:
+            cell['source'] = cell['source'][1:]  #  remove first line if it's a DSTrace token
+
+        return cell
+
+    nb = json.loads(raw_data)
+    clean_cells = []
+    for cell in nb['cells']:
+        if cell['cell_type'] == 'code':
+           cell = handle_cell(cell)
+        clean_cells.append(cell)
+    nb['cells'] = clean_cells
+    return json.dumps(nb)
+
+
+def with_preprocessed_temp_file(processors, *, config: dict = None):
     """Applies each <processor> from <processors> to the file on the given path.
     Passes resulting processed temp file path to the decorated function.
     After the decorated function finishes it's job - removes the temp processed file.
@@ -85,7 +170,7 @@ def with_preprocessed_temp_file(processors):
                 with open(path) as f:
                     data = f.read()
                 for processor in processors:
-                    data = processor(data)
+                    data = processor(data, config=config)
                 with open(temp_file_path, 'w') as f:
                     f.write(data)
                 return func(temp_file_path)
@@ -251,15 +336,12 @@ class DSTrace:
                         token=token,
                     )
 
-                processors = []
-
-                # default behavior is to add commit url
-                if not confluence_config.get('no_commit_url'):  # [CONFIG]
-                    processors.append(add_commit_url)
-
-                if not confluence_config.get('code'):
-                    processors.append(add_remove_input_tags)
-
+                processors = [
+                    handle_input,
+                    handle_output,
+                    handle_commit_url,
+                    remove_dstrace_tokens,
+                ]
                 publish = with_preprocessed_temp_file(processors)(do_publish)
                 publish(notebook)
         else:
