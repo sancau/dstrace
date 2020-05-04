@@ -57,3 +57,9 @@
 ### 0.1.6
 
 - fixed a bug with output nbconvert paths in pre-commit converion logic
+
+### 0.1.7
+
+#### Features:
+
+- allow to mark code cells with special tags that allow to include/exclude outputs and inputs
