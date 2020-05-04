@@ -4,11 +4,14 @@ import os
 import uuid
 import sys
 
+from typing import List
+
 import fire
 import git
 import yaml
 
-from .vendor.nbconflux.nbconflux.api import notebook_to_page # use this codebase as vendor for now as project is abandoned :(
+# use this codebase as vendor for now as project is abandoned :(
+from .vendor.nbconflux.nbconflux.api import notebook_to_page
 
 
 DSTRACE_DEFAULT_COMMAND = 'dstrace'
@@ -23,14 +26,26 @@ DSTRACE_DEFAULT_LOCAL_CONFIG = {
 DSTRACE_CONFIG_PATH = '.dstrace'
 DSTRACE_LOCAL_CONFIG_PATH = '.dstracelocal'
 DSTRACE_CONFLUENCE_FORCE_INCLUDE_INPUT_TAG = 'dstrace_confluence_force_include_input'
-DSTRACE_INCLUDE_INPUT_TOKEN = '# dstrace_include_input\n'
-DSTRACE_EXCLUDE_INPUT_TOKEN = '# dstrace_exclude_input\n'
-DSTRACE_EXCLUDE_OUTPUT_TOKEN = '# dstrace_exclude_output\n'
+DSTRACE_INCLUDE_INPUT_TOKEN = 'dstrace_include_input'
+DSTRACE_EXCLUDE_INPUT_TOKEN = 'dstrace_exclude_input'
+DSTRACE_EXCLUDE_OUTPUT_TOKEN = 'dstrace_exclude_output'
+DSTRACE_CELL_TAGS = [
+    DSTRACE_INCLUDE_INPUT_TOKEN,
+    DSTRACE_EXCLUDE_INPUT_TOKEN,
+    DSTRACE_EXCLUDE_OUTPUT_TOKEN,
+]
 
 GIT_HOOKS_REL_PATH = '.git/hooks'
 GIT_HOOK_PRE_COMMIT_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
 GIT_HOOK_PRE_PUSH_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
 
+def get_dstrace_tags(source: str) -> List[str]:
+    if not source:  # if cell is empty there are no tags
+        return []
+    line = source[0].replace('\n', '')
+    if not line.startswith('# '):  # only a comment can contain tags
+        return []
+    return [t for t in line.split(' ') if t in DSTRACE_CELL_TAGS]
 
 def handle_input(raw_data: str, *, config) -> str:
     """Returns JSON-formatted notebook (sourced from <path>) with specific tags added.
@@ -41,18 +56,18 @@ def handle_input(raw_data: str, *, config) -> str:
         # add tags that can be interpreted by nbconflux
         # look here for details:
         # https://github.com/Valassis-Digital-Media/nbconflux/blob/master/nbconflux/exporter.py#L71
-        cell['metadata']['tags'] = cell['metadata'].get('tags', []) + ['noinput']
+        cell['metadata']['tags'] = list(set(cell['metadata'].get('tags', []) + ['noinput']))
         return cell
 
     def handle_cell(cell):
         if not cell['source']:  # if cell is empty - do nothing
             return cell
 
-        first_line = cell['source'][0]
+        tags = get_dstrace_tags(cell['source'])
 
         if config.get('code'):  # code included by default
             # if the cell has special comment line we dont want to include input (overwrite default)
-            if first_line == DSTRACE_EXCLUDE_INPUT_TOKEN:
+            if DSTRACE_EXCLUDE_INPUT_TOKEN in tags:
                 cell = exclude_input(cell)
 
         else:  # code excluded by default
@@ -62,7 +77,7 @@ def handle_input(raw_data: str, *, config) -> str:
             input_required = (
                 DSTRACE_CONFLUENCE_FORCE_INCLUDE_INPUT_TAG in cell['metadata'].get('tags', [])
                 or
-                first_line == DSTRACE_INCLUDE_INPUT_TOKEN
+                DSTRACE_INCLUDE_INPUT_TOKEN in tags
             )
             if not input_required:
                 cell = exclude_input(cell)
@@ -89,8 +104,8 @@ def handle_output(raw_data: str, *, config: dict) -> str:
         if not cell['source']:  # if cell is empty - do nothing
             return cell
 
-        first_line = cell['source'][0]
-        if first_line == DSTRACE_EXCLUDE_OUTPUT_TOKEN:
+        tags = get_dstrace_tags(cell['source'])
+        if DSTRACE_EXCLUDE_OUTPUT_TOKEN in tags:
             cell = remove_output(cell)
 
         return cell
@@ -138,13 +153,10 @@ def remove_dstrace_tokens(raw_data: str, *, config) -> str:
         if not cell['source']:  # source is empty
             return cell
 
-        first_line = cell['source'][0]
-        if first_line in [
-            DSTRACE_INCLUDE_INPUT_TOKEN,
-            DSTRACE_EXCLUDE_INPUT_TOKEN,
-            DSTRACE_EXCLUDE_OUTPUT_TOKEN,
-        ]:
-            cell['source'] = cell['source'][1:]  #  remove first line if it's a DSTrace token
+        # remove the first line (with tags) if any
+        tags = get_dstrace_tags(cell['source'])
+        if tags:
+            cell['source'] = cell['source'][1:]
 
         return cell
 
@@ -342,7 +354,7 @@ class DSTrace:
                     handle_commit_url,
                     remove_dstrace_tokens,
                 ]
-                publish = with_preprocessed_temp_file(processors)(do_publish)
+                publish = with_preprocessed_temp_file(processors, config=self.config)(do_publish)
                 publish(notebook)
         else:
             sys.stdout.write('No Confluence pages to update.\n')
