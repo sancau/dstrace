@@ -1,0 +1,53 @@
+config_version: 0.1.7
+
+##################
+# Global constants
+##################
+sphinx_doc_dir: ./docs
+sphinx_parent_url: https://confluence.example.com/sphinx_docs
+
+#########################################################
+# Global scripts that will be available across the config
+#########################################################
+
+scripts:
+  nbconvert_and_commit:
+    hook: pre-commit
+    run:
+      - echo "jupyter nbconvert {{node.path}} --to script --out {{node.path}}"
+  confluence_upload_and_slack_notify:
+    hook: pre-push
+    ctx:
+      code: false
+    run:
+      - echo "dstrace confluence upload --source {{ctx.path|node.path}} --url {{ctx.url}} --code {{ctx.code}}"
+      - echo "dstrace slack send --token {{globals.slack_token}} --recipients '#data_science' --message 'Documentation updated at {{ctx.url}}"
+  sphinx_build_and_commit:
+    hook: pre-commit
+    run:
+      - echo "Build Sphinx documentation in {{globals.sphinx_doc_dir}}."
+  sphinx_upload_and_slack_notify:
+    hook: pre-push
+    run:
+      - echo "upload to globals.sphinx_parent_url only if {{globals.sphinx_doc_dir}} has changed."
+      - echo "dstrace slack send --token {{globals.slack_token}} --recipients '#data_science' --message 'Sphinx documentation updated at {{ctx.sphinx_parent_url}}'"
+
+########################################################################
+# Place your nodes configuration below using the scripts defined above #
+########################################################################
+nodes:
+  ./**/*:  # this will run in the whole repo's context
+    sphinx_build_and_commit: {}
+    sphinx_upload_and_slack_notify: {}
+
+  # but this is file-type specific
+  notebooks/*.ipynb:
+    nbconvert_and_commit: {}
+
+  # and this is for the specified file only
+  notebooks/main.ipynb:
+    confluence_upload_and_slack_notify:
+      ctx:
+        url: https://confluence.example.com/main.ipynb
+        code: false
+
