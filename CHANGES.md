@@ -63,3 +63,9 @@
 #### Features:
 
 - allow to mark code cells with special tags that allow to include/exclude outputs and inputs
+
+### 0.1.8
+
+#### Fixes:
+
+- dstrace cell tags now work with IPython magic commands

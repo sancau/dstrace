@@ -39,13 +39,25 @@ GIT_HOOKS_REL_PATH = '.git/hooks'
 GIT_HOOK_PRE_COMMIT_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
 GIT_HOOK_PRE_PUSH_PATH = os.path.join(GIT_HOOKS_REL_PATH, 'pre-commit')
 
-def get_dstrace_tags(source: str) -> List[str]:
+
+def get_dstrace_tags(source: list) -> List[str]:
     if not source:  # if cell is empty there are no tags
         return []
-    line = source[0].replace('\n', '')
+
+    # first few lines can be occupied by ipython magic commands
+    # in this case we need to skip those lines
+    magic_end_index = 0
+    while source[magic_end_index].startswith('%') or source[magic_end_index] == '\n':
+        if len(source) - 1 > magic_end_index:
+            magic_end_index += 1
+        else:
+            break
+
+    line = source[magic_end_index].replace('\n', '')
     if not line.startswith('# '):  # only a comment can contain tags
         return []
     return [t for t in line.split(' ') if t in DSTRACE_CELL_TAGS]
+
 
 def handle_input(raw_data: str, *, config) -> str:
     """Returns JSON-formatted notebook (sourced from <path>) with specific tags added.
@@ -156,7 +168,16 @@ def remove_dstrace_tokens(raw_data: str, *, config) -> str:
         # remove the first line (with tags) if any
         tags = get_dstrace_tags(cell['source'])
         if tags:
-            cell['source'] = cell['source'][1:]
+
+            # first few lines can be occupied by ipython magic commands
+            # in this case we need to skip those lines
+            dstrace_tags_line_num = 0
+            while cell['source'][dstrace_tags_line_num].startswith('%') or cell['source'][dstrace_tags_line_num] == '\n':  # noqa: E501
+                if len(cell['source']) - 1 > dstrace_tags_line_num:
+                    dstrace_tags_line_num += 1
+                else:
+                    break
+            cell['source'].pop(dstrace_tags_line_num)
 
         return cell
 
