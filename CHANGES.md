@@ -68,4 +68,4 @@
 
 #### Fixes:
 
-- dstrace cell tags now work with IPython magic commands
+- DSTrace cell tags now work with IPython magic commands
