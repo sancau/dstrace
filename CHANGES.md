@@ -69,3 +69,9 @@
 #### Fixes:
 
 - DSTrace cell tags now work with IPython magic commands
+
+### 0.1.9
+
+#### Fixes:
+
+- Fixed a bug where page configurations would not affect conversion process
