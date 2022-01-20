@@ -375,7 +375,7 @@ class DSTrace:
                     handle_commit_url,
                     remove_dstrace_tokens,
                 ]
-                publish = with_preprocessed_temp_file(processors, config=self.config)(do_publish)
+                publish = with_preprocessed_temp_file(processors, config=confluence_config)(do_publish)
                 publish(notebook)
         else:
             sys.stdout.write('No Confluence pages to update.\n')
