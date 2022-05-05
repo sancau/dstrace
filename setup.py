@@ -37,7 +37,7 @@ setup(
         'PyYAML==5.2',
         'requests==2.22.0',
         'traitlets==4.3.3',
-        'bleach==3.1.4',
+        'bleach==3.3.0',
     ],
     entry_points={
         'console_scripts': [
