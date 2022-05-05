@@ -332,13 +332,28 @@ class DSTrace:
             password=token,
         )
 
+    def get_unstaged_changes(self):
+        gp = GITProxy('.')
+        git_direct_CLI = gp.repo.git
+        status = git_direct_CLI.status('--porcelain')
+        changes = status.split('\n')
+        unstaged_changes_raw = [file for file in changes if file.startswith(' M')]
+        #  'M path/filename' - staged modified
+        #  ' M path/filename' - unstaged modified
+
+        unstaged_filenames = [file.split('M')[1].lstrip() for file in unstaged_changes_raw]
+        return unstaged_filenames
+
     def get_pages_to_update(self):
         gp = GITProxy('.')
+        unstaged = self.get_unstaged_changes()
 
         return {
             notebook: confluence_config for notebook, confluence_config in self.confluence_pages.items()
             if
             notebook in gp.get_changed_files_since_last_push()
+            and
+            notebook not in unstaged
             and
             confluence_config['branch'] == gp.repo.active_branch.name
         }
