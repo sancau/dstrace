@@ -34,7 +34,7 @@ setup(
         'GitPython==3.0.8',
         'html5lib==1.0.1',
         'nbconvert==5.6.1',
-        'PyYAML==5.2',
+        'PyYAML==5.4',
         'requests==2.22.0',
         'traitlets==4.3.3',
         'bleach==3.1.4',
