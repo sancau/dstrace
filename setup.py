@@ -30,14 +30,15 @@ setup(
     zip_safe=False,
     platforms='any',
     install_requires=[
-        'fire==0.2.1',
-        'GitPython==3.0.8',
-        'html5lib==1.0.1',
-        'nbconvert==5.6.1',
-        'PyYAML==5.2',
-        'requests==2.22.0',
-        'traitlets==4.3.3',
-        'bleach==3.1.4',
+        'fire>=0.2.1,<1',
+        'GitPython>=3.0.8,<4',
+        'html5lib>=1.0.1,<2',
+        'nbconvert>=5.6.1,<6',
+        'PyYAML>=5.2,<6',
+        'requests>=2.22.0,<3',
+        'traitlets>=4.3.3,<5',
+        'bleach>=3.1.4,<4',
+        'Jinja2>=3.0.0,<4',
     ],
     entry_points={
         'console_scripts': [

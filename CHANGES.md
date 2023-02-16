@@ -83,3 +83,7 @@
 ### 0.1.11
 
 - Use ranges instead of fixed versions for dependencies.
+
+### 0.1.12
+
+- Dependencies fix.
