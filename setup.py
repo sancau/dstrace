@@ -31,7 +31,7 @@ setup(
     platforms='any',
     install_requires=[
         'fire==0.2.1',
-        'GitPython==3.0.8',
+        'GitPython==3.1.30',
         'html5lib==1.0.1',
         'nbconvert==5.6.1',
         'PyYAML==5.2',
