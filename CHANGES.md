@@ -75,3 +75,11 @@
 #### Fixes:
 
 - Fixed a bug where page configurations would not affect conversion process
+
+### 0.1.10
+
+- Add Jinja2 dependency.
+
+### 0.1.11
+
+- Use ranges instead of fixed versions for dependencies.
